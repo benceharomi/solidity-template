@@ -5,15 +5,15 @@ description: >-
 
 inputs:
   lcov_file:
-    description: "Path to the lcov.info file."
-    default: "lcov.info"
+    description: Path to the lcov.info file.
+    default: lcov.info
 
   minimum-coverage:
-    description: "Minimum coverage threshold percentage."
-    default: "90.00"
+    description: Minimum coverage threshold percentage.
+    default: 90.00
 
   github-token:
-    description: "GitHub token for API access. Requires `pull-requests: write` permissions to post comments."
+    description: GitHub token for API access.
     required: true
 
 runs:
