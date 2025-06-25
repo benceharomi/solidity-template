@@ -25,14 +25,8 @@ runs:
         GH_TOKEN: ${{ inputs.github-token }}
         GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
-        # =============================================================================
-        # SETUP AND ERROR HANDLING
-        # =============================================================================
         set -euo pipefail
 
-        # =============================================================================
-        # DEBUG & VALIDATION
-        # =============================================================================
         echo "🔍 Debug: Processing coverage file \"${{ inputs.lcov_file }}\""
         echo "🔍 Debug: Minimum coverage threshold: ${{ inputs.minimum-coverage }}%"
         echo "🔍 Debug: GitHub event: $GITHUB_EVENT_NAME"
@@ -50,9 +44,6 @@ runs:
           exit 1
         fi
 
-        # =============================================================================
-        # DEPENDENCY CHECKS
-        # =============================================================================
         if ! command -v jq &> /dev/null; then
           echo "❌ Error: 'jq' is required but not installed. Please add it to your workflow."
           exit 1
@@ -62,9 +53,6 @@ runs:
           exit 1
         fi
 
-        # =============================================================================
-        # COVERAGE CALCULATION
-        # =============================================================================
         TOTAL_LINES=$(awk -F: '/^LF:/ {s+=$2} END {print s+0}' "${{ inputs.lcov_file }}")
         HIT_LINES=$(awk -F: '/^LH:/ {s+=$2} END {print s+0}' "${{ inputs.lcov_file }}")
 
@@ -77,9 +65,6 @@ runs:
         echo "Line coverage: $LINE_COVERAGE% ($HIT_LINES / $TOTAL_LINES lines)"
         PASSED=$(awk -v cov="$LINE_COVERAGE" -v min="${{ inputs.minimum-coverage }}" 'BEGIN { print (cov >= min) }')
 
-        # =============================================================================
-        # COMMENT GENERATION AND POSTING
-        # =============================================================================
         if [ "$PASSED" = "1" ]; then
           STATUS_ICON="✅"; STATUS_MESSAGE="Above threshold"
           echo "✅ Coverage check passed ($LINE_COVERAGE% >= ${{ inputs.minimum-coverage }}%)"
@@ -112,7 +97,8 @@ runs:
           fi
 
           echo "🔍 Searching for existing comment on PR #$PR_NUMBER..."
-          COMMENT_ID=$(gh pr view "$PR_NUMBER" --json comments{body,databaseId} --limit 1000 | jq --arg tag "$COMMENT_TAG" --raw-output '.comments[] | select(.body | contains($tag)) | .databaseId' 2>/dev/null || echo "")
+          # This command fetches all comments and is not dependent on new `gh pr view` flags.
+          COMMENT_ID=$(gh api --paginate "/repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" | jq --arg tag "$COMMENT_TAG" --raw-output '.[] | select(.body | contains($tag)) | .id' | tail -n 1)
 
           if [ -n "$COMMENT_ID" ]; then
             echo "Found previous comment (ID: $COMMENT_ID). Updating it."
@@ -124,9 +110,6 @@ runs:
           fi
         fi
 
-        # =============================================================================
-        # FINAL EXIT STATUS
-        # =============================================================================
         if [ "$PASSED" != "1" ]; then
           echo "Failing the workflow because test coverage is below the threshold."
           exit 1
