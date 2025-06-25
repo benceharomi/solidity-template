@@ -134,7 +134,7 @@ runs:
 
           if [ -n "$COMMENT_ID" ]; then
             echo "Found previous comment (ID: $COMMENT_ID). Updating it."
-            gh pr comment "$PR_NUMBER" --edit "$COMMENT_ID" --body "$COMMENT_BODY"
+            gh api --method PATCH "/repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --input - <<< "$BODY_JSON"
           else
             echo "No previous comment found. Creating a new one."
             gh pr comment "$PR_NUMBER" --body "$COMMENT_BODY"
