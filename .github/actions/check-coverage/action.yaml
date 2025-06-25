@@ -1,17 +1,19 @@
 name: Check Coverage
-description: Checks test coverage against a minimum threshold and posts a report as a PR comment. Requires `pull-requests: write` permission.
+description: >-
+  Checks test coverage against a minimum threshold and posts a report as a PR comment.
+  Requires `pull-requests: write` permission.
 
 inputs:
   lcov_file:
-    description: 'Path to the lcov.info file.'
-    default: 'lcov.info'
+    description: "Path to the lcov.info file."
+    default: "lcov.info"
 
   minimum-coverage:
-    description: 'Minimum coverage threshold percentage.'
-    default: '90.00'
+    description: "Minimum coverage threshold percentage."
+    default: "90.00"
 
   github-token:
-    description: 'GitHub token for API access. Requires `pull-requests: write` permissions to post comments.'
+    description: "GitHub token for API access. Requires `pull-requests: write` permissions to post comments."
     required: true
 
 runs:
