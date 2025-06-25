@@ -97,7 +97,6 @@ runs:
           fi
 
           echo "🔍 Searching for existing comment on PR #$PR_NUMBER..."
-          # Use `gh api` for robust, backward-compatible comment searching.
           COMMENT_ID=$(gh api --paginate "/repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" | jq --arg tag "$COMMENT_TAG" --raw-output '.[] | select(.body | contains($tag)) | .id' | tail -n 1)
 
           if [ -n "$COMMENT_ID" ]; then
