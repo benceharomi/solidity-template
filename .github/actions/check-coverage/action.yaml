@@ -112,7 +112,7 @@ runs:
           fi
 
           echo "🔍 Searching for existing comment on PR #$PR_NUMBER..."
-          COMMENT_ID=$(gh pr view "$PR_NUMBER" --json comments{body,databaseId} -q ".comments[] | select(.body | contains(\"$COMMENT_TAG\")) | .databaseId" 2>/dev/null || echo "")
+          COMMENT_ID=$(gh pr view "$PR_NUMBER" --json comments{body,databaseId} --limit 1000 | jq --arg tag "$COMMENT_TAG" --raw-output '.comments[] | select(.body | contains($tag)) | .databaseId' 2>/dev/null || echo "")
 
           if [ -n "$COMMENT_ID" ]; then
             echo "Found previous comment (ID: $COMMENT_ID). Updating it."
