@@ -97,13 +97,14 @@ runs:
           fi
 
           echo "🔍 Searching for existing comment on PR #$PR_NUMBER..."
-          # This command fetches all comments and is not dependent on new `gh pr view` flags.
+          # Use `gh api` for robust, backward-compatible comment searching.
           COMMENT_ID=$(gh api --paginate "/repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" | jq --arg tag "$COMMENT_TAG" --raw-output '.[] | select(.body | contains($tag)) | .id' | tail -n 1)
 
           if [ -n "$COMMENT_ID" ]; then
             echo "Found previous comment (ID: $COMMENT_ID). Updating it."
             BODY_JSON=$(jq -R --slurp '{body: .}' <<< "$COMMENT_BODY")
-            gh api --method PATCH "/repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --input - <<< "$BODY_JSON"
+            # Update the comment and redirect the successful JSON output to /dev/null to keep logs clean.
+            gh api --method PATCH "/repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --input - <<< "$BODY_JSON" > /dev/null
           else
             echo "No previous comment found. Creating a new one."
             gh pr comment "$PR_NUMBER" --body "$COMMENT_BODY"
