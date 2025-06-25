@@ -38,6 +38,7 @@
     "lint:check": "solhint \"**/*.sol\"",
     "lint": "solhint --fix \"**/*.sol\"",
     "prepare": "husky",
-    "test": "forge test"
+    "test": "forge test",
+    "test-2": "forge test --match-test test_2"
   }
 }
