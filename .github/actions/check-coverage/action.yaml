@@ -77,6 +77,116 @@ runs:
           echo "❌ Coverage too low ($LINE_COVERAGE% < ${{ inputs.minimum-coverage }}%)"
         fi
 
+        # Generate detailed coverage summary table
+        echo "📊 Generating detailed coverage summary..."
+
+        # Create a temporary file to store the coverage data
+        COVERAGE_TEMP=$(mktemp)
+
+        # Parse LCOV file and extract coverage data per file
+        awk '
+        /^SF:/ {
+          file = substr($0, 4)
+          next
+        }
+        /^LF:/ {
+          lines_found = $2
+          next
+        }
+        /^LH:/ {
+          lines_hit = $2
+          next
+        }
+        /^FNF:/ {
+          functions_found = $2
+          next
+        }
+        /^FNH:/ {
+          functions_hit = $2
+          next
+        }
+        /^BRF:/ {
+          branches_found = $2
+          next
+        }
+        /^BRH:/ {
+          branches_hit = $2
+          next
+        }
+        /^end_of_record/ {
+          if (file != "") {
+            # Calculate percentages
+            lines_pct = (lines_found > 0) ? (lines_hit / lines_found) * 100 : 0
+            functions_pct = (functions_found > 0) ? (functions_hit / functions_found) * 100 : 0
+            branches_pct = (branches_found > 0) ? (branches_hit / branches_found) * 100 : 0
+
+            # Use statements as lines for now (LCOV doesn\'t have separate statement coverage)
+            statements_pct = lines_pct
+
+            printf "%s|%.2f|%d|%d|%.2f|%d|%d|%.2f|%d|%d|%.2f|%d|%d\n",
+              file, lines_pct, lines_hit, lines_found,
+              statements_pct, lines_hit, lines_found,
+              branches_pct, branches_hit, branches_found,
+              functions_pct, functions_hit, functions_found
+
+            # Reset variables
+            file = ""
+            lines_found = lines_hit = functions_found = functions_hit = branches_found = branches_hit = 0
+          }
+        }
+        ' "${{ inputs.lcov_file }}" > "$COVERAGE_TEMP"
+
+        # Generate the table
+        COVERAGE_TABLE=""
+        if [ -s "$COVERAGE_TEMP" ]; then
+          COVERAGE_TABLE="\`\`\`\n╭-----------------+---------------+---------------+---------------+---------------╮\n"
+          COVERAGE_TABLE+="| File            | % Lines       | % Statements  | % Branches    | % Funcs       |\n"
+          COVERAGE_TABLE+="+=================================================================================+\n"
+
+          # Process each file
+          while IFS='|' read -r file lines_pct lines_hit lines_found statements_pct stmt_hit stmt_found branches_pct branches_hit branches_found functions_pct functions_hit functions_found; do
+            # Extract just the filename without path
+            filename=$(basename "$file")
+
+            # Format the percentages and counts
+            lines_str=$(printf "%.2f%% (%d/%d)" "$lines_pct" "$lines_hit" "$lines_found")
+            statements_str=$(printf "%.2f%% (%d/%d)" "$statements_pct" "$stmt_hit" "$stmt_found")
+            branches_str=$(printf "%.2f%% (%d/%d)" "$branches_pct" "$branches_hit" "$branches_found")
+            functions_str=$(printf "%.2f%% (%d/%d)" "$functions_pct" "$functions_hit" "$functions_found")
+
+            # Pad filename to 15 characters
+            filename_padded=$(printf "%-15s" "$filename")
+
+            COVERAGE_TABLE+="| $filename_padded | $(printf "%-13s" "$lines_str") | $(printf "%-13s" "$statements_str") | $(printf "%-13s" "$branches_str") | $(printf "%-13s" "$functions_str") |\n"
+            COVERAGE_TABLE+="|-----------------+---------------+---------------+---------------+---------------|\n"
+          done < "$COVERAGE_TEMP"
+
+          # Add total row
+          total_lines_pct=$(awk "BEGIN {printf \"%.2f\", ($HIT_LINES / $TOTAL_LINES) * 100}")
+          total_lines_str=$(printf "%.2f%% (%d/%d)" "$total_lines_pct" "$HIT_LINES" "$TOTAL_LINES")
+
+          # Calculate totals for other metrics
+          TOTAL_FUNCTIONS_FOUND=$(awk -F: '/^FNF:/ {s+=$2} END {print s+0}' "${{ inputs.lcov_file }}")
+          TOTAL_FUNCTIONS_HIT=$(awk -F: '/^FNH:/ {s+=$2} END {print s+0}' "${{ inputs.lcov_file }}")
+          TOTAL_BRANCHES_FOUND=$(awk -F: '/^BRF:/ {s+=$2} END {print s+0}' "${{ inputs.lcov_file }}")
+          TOTAL_BRANCHES_HIT=$(awk -F: '/^BRH:/ {s+=$2} END {print s+0}' "${{ inputs.lcov_file }}")
+
+          total_functions_pct=$(awk "BEGIN {printf \"%.2f\", ($TOTAL_FUNCTIONS_HIT / $TOTAL_FUNCTIONS_FOUND) * 100}")
+          total_branches_pct=$(awk "BEGIN {printf \"%.2f\", ($TOTAL_BRANCHES_HIT / $TOTAL_BRANCHES_FOUND) * 100}")
+
+          total_statements_str="$total_lines_str"
+          total_branches_str=$(printf "%.2f%% (%d/%d)" "$total_branches_pct" "$TOTAL_BRANCHES_HIT" "$TOTAL_BRANCHES_FOUND")
+          total_functions_str=$(printf "%.2f%% (%d/%d)" "$total_functions_pct" "$TOTAL_FUNCTIONS_HIT" "$TOTAL_FUNCTIONS_FOUND")
+
+          COVERAGE_TABLE+="| Total           | $(printf "%-13s" "$total_lines_str") | $(printf "%-13s" "$total_statements_str") | $(printf "%-13s" "$total_branches_str") | $(printf "%-13s" "$total_functions_str") |\n"
+          COVERAGE_TABLE+="╰-----------------+---------------+---------------+---------------+---------------╯\n\`\`\`"
+        else
+          COVERAGE_TABLE="*No detailed coverage data available*"
+        fi
+
+        # Clean up temp file
+        rm -f "$COVERAGE_TEMP"
+
         COMMENT_TAG="<!-- coverage-check-comment -->"
         COMMENT_BODY=$(cat <<-EOF
           ### 📊 Coverage Report
@@ -86,6 +196,10 @@ runs:
           | Lines  | \`$LINE_COVERAGE%\` | \`${{ inputs.minimum-coverage }}%\` | $STATUS_ICON $STATUS_MESSAGE |
 
           **Details**: $HIT_LINES of $TOTAL_LINES lines covered.
+
+          #### 📋 Detailed Coverage Summary
+
+          $COVERAGE_TABLE
 
           $COMMENT_TAG
         EOF
