@@ -120,7 +120,7 @@ runs:
             functions_pct = (functions_found > 0) ? (functions_hit / functions_found) * 100 : 0
             branches_pct = (branches_found > 0) ? (branches_hit / branches_found) * 100 : 0
 
-            # Use statements as lines for now (LCOV doesn\'t have separate statement coverage)
+            # Use statements as lines for now (LCOV does not have separate statement coverage)
             statements_pct = lines_pct
 
             printf "%s|%.2f|%d|%d|%.2f|%d|%d|%.2f|%d|%d|%.2f|%d|%d\n",
