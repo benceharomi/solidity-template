@@ -97,7 +97,7 @@ runs:
           fi
 
           echo "🔍 Searching for existing comment on PR #$PR_NUMBER..."
-          COMMENT_ID=$(gh api --paginate "/repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" | jq --arg tag "$COMMENT_TAG" --raw-output '.[] | select(.body | contains($tag)) | .id' | tail -n 1)
+          COMMENT_ID=$(gh api --paginate "/repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" | jq --arg tag "$COMMENT_TAG" --raw-output '[.[] | select(.body | contains($tag))] | sort_by(.created_at) | last | .id')
 
           if [ -n "$COMMENT_ID" ]; then
             echo "Found previous comment (ID: $COMMENT_ID). Updating it."
